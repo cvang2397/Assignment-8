@@ -12,11 +12,13 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
         with:
-          node-version: 16
-
+          persist-credentials: false
+          fetch-depth: 0
+          
       - name: Install Dependencies
         run: |
           Rscript -e 'install.packages(c("tidyverse", "dplyr", "gt", "sf", "ggmap", "tmap", "osmdata", "tidycensus", "leaflet", "ggthemes", "viridis", "knitr"))'
+          
       - name: Build R Markdown
         run: Rscript -e 'rmarkdown::render("Assignment6_CharlyVang.Rmd")'
 
@@ -24,7 +26,8 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
-          publish_dir: ./path/to/your/output/directory
+          publish_dir: ."/Users/vang2397/Documents/2022-2023/PUBH 7462 - R/PUBH 7462: Advance Programming and Data Analysis in R/Assignment 8"
           publish_branch: gh-pages
+
 
 
