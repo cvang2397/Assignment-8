@@ -26,7 +26,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
-          publish_dir: ."/Users/vang2397/Documents/2022-2023/PUBH 7462 - R/PUBH 7462: Advance Programming and Data Analysis in R/Assignment 8"
+          publish_dir: "/Users/vang2397/Documents/2022-2023/PUBH 7462 - R/PUBH 7462: Advance Programming and Data Analysis in R/Assignment 8"
           publish_branch: gh-pages
 
 
