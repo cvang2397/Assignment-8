@@ -1,0 +1,394 @@
+---
+title: "Assignment 6"
+author: "Charly Vang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: journal
+    toc: yes
+    toc_float: true
+---
+```{r setup, include=FALSE}
+library(tidyverse)
+library(dplyr)
+library(gt)
+library(sf)
+library(ggmap)
+library(tmap)
+library(osmdata)
+library(tidycensus)
+library(leaflet)
+library(ggthemes)
+library(viridis)
+library(leaflet)
+library(knitr)
+```
+
+### 1.2: Outdoor, fishing, and boating map
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#Basemap of Minnesota
+mn.box <- osmdata::getbb("minnesota")
+
+mn_base.map <- get_map(
+  location = mn.box,
+  source   = "stamen",
+  maptype  = "terrain",
+  crop = TRUE
+)
+
+mn_base.gg <- ggmap(mn_base.map) +
+  theme_map() +
+  theme(
+    plot.title   = element_text(size  = 16, hjust = 0.5),
+    legend.text  = element_text(size = 16),
+    legend.title = element_text(size = 16),
+    legend.position = "right"
+  )
+
+# OSM points
+osm_shop_sf.df <- opq(bbox = "minnesota", timeout = 1000) %>%
+  add_osm_feature(key = "shop", value = c("outdoor", "fishing", "boat")) %>%
+  osmdata_sf()
+
+shop_points.df <- osm_shop_sf.df$osm_points %>% 
+  janitor::clean_names() %>%
+  filter(!is.na(shop)) %>% 
+  filter(!is.na(name)) %>%
+  dplyr::select(osm_id, name, shop) %>%
+  mutate(shop = str_to_title(shop) %>% as_factor())
+
+shop_points.df %>%
+  as_tibble() %>%
+  dplyr::select(-geometry) %>%
+  kable()
+
+#MN Basemap and OSM points
+mn_base.gg +
+  geom_sf(data = shop_points.df,
+          aes(colour = shop),
+          inherit.aes = FALSE,
+          alpha = 0.8, shape = 16) +
+  labs(title = "Minnesota OSM Features") + 
+  scale_colour_viridis_d("Shop") +
+  theme_map() +
+  theme(
+    plot.title   = element_text(size  = 16,
+                                hjust = 0.5),
+    legend.text  = element_text(size = 16),
+    legend.title = element_text(size = 16),
+    legend.position = "right"
+  ) 
+
+#Leaflet
+library(viridis, quietly = TRUE)
+
+shop_types <- levels(shop_points.df$shop)
+n_types <- length(shop_types)
+
+my_pallete <- colorFactor(viridis_pal(option = "D")(n_types), 
+                          levels = shop_types)
+
+leaflet(data = shop_points.df) %>%
+  addProviderTiles('CartoDB.Positron') %>% 
+  addCircleMarkers(
+    color   = ~my_pallete(shop),
+    opacity = 0.4,
+    weight  = 2, 
+    radius  = 4 
+  ) %>%
+  addLegend(
+    title    = "Shop Type",
+    position = "bottomright",
+    colors   = viridis_pal(option = "D")(n_types),
+    labels   = shop_types 
+  )
+```
+
+### 1.3: Hennepin County Mean Hours Worked in 2020
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(sf)
+library(ggmap)
+library(tidycensus)
+library(ggplot2)
+library(plotly)
+
+# Set the Census API key
+census_api_key("9f7f6102d7b61b02bed627446ce9fab3dd406eb4", install = TRUE, overwrite = TRUE)
+
+# Get the Census Block Group data for Hennepin County
+hennepin_hour <- get_acs(
+  geography = "tract",
+  variables = "B23020_001",
+  state = "MN",
+  county = "Hennepin",
+  year = 2020,
+  geometry = TRUE,
+  output = "wide"
+)
+
+#Add a text label to mn_income.df
+hennepin_hour_df <- hennepin_hour %>%
+  filter(!is.na(B23020_001E)) %>%
+  mutate(
+    tract = str_split(NAME, ",") %>%
+      map_chr(1) %>%
+      str_remove("Census Tract "),
+    text_label = str_c(
+      "Tract: ",
+      tract,
+      "\nMean Worked Hours: ",
+      scales::comma_format(suffix = " hours")(B23020_001E)
+    )
+  )
+
+
+# Set up the ggplot object
+hennepin_hour.gg <- ggplot() + 
+  geom_sf(data = hennepin_hour_df, aes(fill = B23020_001E)) + 
+  labs(title = "Hennepin County, MN ACS Mean Hours Worked in 2020") + 
+  theme_void() + 
+  scale_fill_viridis_c(name = "Mean Hours Worked", 
+                       labels = scales::comma_format(suffix = " hours")) +
+  theme_map() +
+  theme(
+    plot.title   = element_text(size  = 16,
+                                hjust = 0.5),
+    legend.text  = element_text(size = 16),
+    legend.title = element_text(size = 16),
+    legend.position = "right"
+  )
+
+#plotly
+ggplotly(hennepin_hour.gg,
+         tooltip = "text",
+         height  = 400,
+         width   = 600) %>%
+  style(hoveron = "fills")
+
+#basemap ----
+mn.box           <- osmdata::getbb("minnesota")
+hennepin.box     <- osmdata::getbb("hennepin")
+hennepin.outline <- osmdata::getbb("hennepin", format_out = "polygon")[[1]] %>%
+  as_tibble() %>%
+  rename(longitude = V1, latitude = V2)
+
+#Get the base map (foundational layer)
+mn_base.map <- get_map(
+  location = hennepin.box,
+  source   = "stamen",
+  maptype  = "terrain",
+  crop = TRUE
+)
+
+#Create the base map
+hennepin_base.gg <- ggmap(mn_base.map) +
+  geom_polygon(data = hennepin.outline, aes(x = longitude, y = latitude), colour = "black", size = 1.6, alpha = 0.1) +
+  theme_map() +
+  theme(
+    plot.title   = element_text(size  = 16,
+                                hjust = 0.5),
+    legend.text  = element_text(size = 16),
+    legend.title = element_text(size = 16),
+    legend.position = "right"
+  )
+
+#add ggplotly
+coord_ggmap <- st_crs(hennepin_base.gg) 
+coord_sf    <- st_crs(hennepin_hour_df) 
+
+#Overlay thge sf info from tidycensus ACS income estimates
+mn_hour.ggmap <- hennepin_base.gg +  
+  geom_sf(data = hennepin_hour_df, 
+          aes(fill = B23020_001E, text = text_label),
+          colour = "black", size = 0.1,
+          inherit.aes = FALSE) + 
+  labs(title = "Hennepin County Mean Hours Worked in 2020") + 
+  scale_fill_viridis_c("Mean Hours Worked", labels = scales::comma_format(suffix = " hours")) +
+  theme_map() +
+  theme(
+    plot.title   = element_text(size  = 16,
+                                hjust = 0.5),
+    legend.text  = element_text(size = 16),
+    legend.title = element_text(size = 16),
+    legend.position = "right"
+  )
+
+ggplotly(mn_hour.ggmap,
+         tooltip = "text",
+         height  = 600,
+         width   = 800) %>%
+  style(hoveron = "fills")
+
+#joining tidycensus zipcode data
+mn_zipcode.df <- read_csv("mn_zipcodes.csv",
+                          show_col_types = FALSE) %>%
+  mutate(
+    zip_code = as.character(zip_code),
+    county   = as_factor(county)
+  ) %>%
+  bind_rows(
+    .,
+    tibble(
+      zip_code = as.character(c(55344, 55346, 55347)),
+      city     = rep("Eden Prairie", 3),
+      county   = rep("Hennepin", 3) 
+    )
+  )
+
+zipcode_income.df <- get_acs(
+  geography = "zip code tabulation area",
+  variables = "B19013_001", #Code for median income
+  geometry  = TRUE
+) %>%
+  janitor::clean_names() %>%
+  mutate(
+    zipcode = str_remove(name, "ZCTA5 ")
+  )
+
+mn_zip_city.df <- left_join(
+  zipcode_income.df, 
+  mn_zipcode.df, 
+  by = c("zipcode" = "zip_code") #zipcode in first, zip_code second
+) %>%
+  filter(county %in% "Hennepin")
+
+mn_zip_city.df %>%
+  as_tibble() %>% #making a tibble for display
+  dplyr::select(-geometry) %>% #removing for display purposes
+  head() %>%
+  gt()
+
+mn_zip_city.df <- inner_join(
+  zipcode_income.df,
+  mn_zipcode.df,
+  by = c("zipcode" = "zip_code") #zipcode in first, zip_code second
+)
+
+mn_zip_city.df %>%
+  as_tibble() %>% #making a tibble for display
+  dplyr::select(-geometry) %>% #removing for display purposes
+  head() %>%
+  gt()
+
+mn_zip_city.df <- mn_zip_city.df %>% filter(county %in% "Hennepin")
+
+hour_plotly.df <- mn_zip_city.df %>%
+  mutate(
+    text_label = str_c(
+      "City: ",
+      city,
+      "\nZipcode: ",
+      zipcode,
+      "\nMedian Income: ",
+      scales::dollar(estimate)
+    )
+  )
+
+hennepin.ggmap <- hennepin_base.gg +  
+  geom_sf(data = hennepin_hour_df, 
+          aes(fill = B23020_001E, text = text_label),
+          colour = "black", size = 0.1,
+          inherit.aes = FALSE) + 
+  geom_path(data = hennepin.outline,
+            aes(x = longitude, y = latitude),
+            colour = "black", size = 1.2, alpha = 0.6,
+            inherit.aes = FALSE) + 
+  labs(title = "Hennepin County Mean Hours Worked in 2020") + 
+  scale_fill_viridis_c("Mean Hours Worked", labels = scales::comma_format(suffix = " hours")) +
+  theme_map() +
+  theme(
+    plot.title   = element_text(size  = 16,
+                                hjust = 0.5),
+    legend.text  = element_text(size = 16),
+    legend.title = element_text(size = 16),
+    legend.position = "right"
+  )
+
+
+ggplotly(hennepin.ggmap,
+         tooltip = "text",
+         height  = 600,
+         width   = 800) %>%
+  style(hoveron = "fills")
+```
+
+### 1.4: Car Shop and Repair in Hennepin County
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+hennepin_bb <- getbb("Hennepin County, MN")
+
+# Get base map
+hennepin_base_map <- get_map(
+  location = hennepin_bb,
+  source = "stamen",
+  maptype = "terrain",
+  crop = TRUE
+)
+
+# Create ggmap object
+hennepin_base_gg <- ggmap(hennepin_base_map) +
+  theme_map() +
+  theme(
+    plot.title = element_text(size = 16, hjust = 0.5),
+    legend.text = element_text(size = 16),
+    legend.title = element_text(size = 16),
+    legend.position = "right"
+  )
+
+# OSM points
+osm_hennepin_shop_sf.df <- opq(bbox = hennepin_bb, timeout = 1000) %>%
+  add_osm_feature(key = "shop", value = c("car_repair", "car_parts")) %>%
+  osmdata_sf()
+
+hennepin_shop_points.df <- osm_hennepin_shop_sf.df$osm_points %>% 
+  janitor::clean_names() %>%
+  filter(!is.na(shop)) %>% 
+  filter(!is.na(name)) %>%
+  dplyr::select(osm_id, name, shop, phone) %>%
+  mutate(shop = str_to_title(shop) %>% as_factor())
+
+# Hennepin County Basemap, OSM points and highways
+hennepin_base_gg +
+  geom_sf(data = hennepin_shop_points.df,
+          aes(colour = shop),
+          inherit.aes = FALSE,
+          alpha = 0.8, shape = 16) +
+  labs(title = "Hennepin County Car Shop") + 
+  scale_colour_viridis_d("Shop") +
+  theme_map() +
+  theme(
+    plot.title   = element_text(size  = 16,
+                                hjust = 0.5),
+    legend.text  = element_text(size = 16),
+    legend.title = element_text(size = 16),
+    legend.position = "right"
+  ) 
+
+# Load data and create palette
+shop_types <- levels(hennepin_shop_points.df$shop)
+n_types <- length(shop_types)
+
+my_palette <- colorFactor(viridis_pal(option = "D")(n_types), 
+                          levels = shop_types)
+
+# Create leaflet map
+leaflet(data = hennepin_shop_points.df) %>%
+  addProviderTiles('CartoDB.Positron') %>% 
+  addCircleMarkers(
+    color   = ~my_palette(shop),
+    opacity = 0.4,
+    weight  = 2, 
+    radius  = 4,
+    popup = paste("<b>Shop:</b> ", hennepin_shop_points.df$name, "<br>",
+                  "<b>Phone:</b> ", hennepin_shop_points.df$phone, "<br>")
+  ) %>%
+  addLegend(
+    title    = "Car Shop Type",
+    position = "bottomright",
+    colors   = viridis_pal(option = "D")(n_types),
+    labels   = shop_types 
+  )
+```
+
