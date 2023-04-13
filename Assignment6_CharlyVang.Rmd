@@ -115,7 +115,7 @@ library(ggplot2)
 library(plotly)
 
 # Set the Census API key
-census_api_key("9f7f6102d7b61b02bed627446ce9fab3dd406eb4", install = TRUE, overwrite = TRUE)
+api_key <- Sys.getenv("MAPS_API_KEY")
 
 # Get the Census Block Group data for Hennepin County
 hennepin_hour <- get_acs(
@@ -391,4 +391,6 @@ leaflet(data = hennepin_shop_points.df) %>%
     labels   = shop_types 
   )
 ```
+
+
 
