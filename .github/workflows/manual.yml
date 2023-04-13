@@ -1,14 +1,17 @@
-on: [workflow_dispatch]
+on:
+  push:
+    branches:
+      - main
 
-name: Render Report
+name: Publish Report to GitHub Pages
 
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
-    
+
     permissions:
-        contents: write
-        
+      contents: write
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
@@ -21,7 +24,7 @@ jobs:
       - name: Install packages
         run: |
           Rscript -e 'install.packages(c("knitr", "rmarkdown", "dplyr", "tidyr", "ggplot2", "lubridate", "googleway", "purrr", "leaflet", "gepaf"))'
-          
+
       - name: Render document
         uses: quarto-dev/quarto-actions/render@v2
         env:
@@ -29,17 +32,15 @@ jobs:
         with:
           to: html
           path: Assignment6_CharlyVang.Rmd
-          
-      - name: Setup git config
-        run: |
-          git config user.name "GitHub Actions Bot"
-          git config user.email "<>"
-          
-      - name: Commit
-        run: |
-          git add .
-          git commit -m "Updated report"
-          git push origin main
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        env:
+          PERSONAL_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        with:
+          publish_dir: ./docs
+          publish_branch: gh-pages
+
 
 
 
