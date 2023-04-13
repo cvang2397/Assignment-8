@@ -11,11 +11,12 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2
+        with:
+          node-version: 16
 
       - name: Install Dependencies
         run: |
           Rscript -e 'install.packages(c("tidyverse", "dplyr", "gt", "sf", "ggmap", "tmap", "osmdata", "tidycensus", "leaflet", "ggthemes", "viridis", "knitr"))'
-
       - name: Build R Markdown
         run: Rscript -e 'rmarkdown::render("Assignment6_CharlyVang.Rmd")'
 
