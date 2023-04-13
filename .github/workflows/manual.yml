@@ -1,33 +1,45 @@
-name: GitHub Pages
+on: [workflow_dispatch]
 
-on:
-  push:
-    branches:
-      - main
+name: Render Report
 
 jobs:
-  build-and-deploy:
+  build-deploy:
     runs-on: ubuntu-latest
+    
+    permissions:
+        contents: write
+        
     steps:
-      - name: Checkout Repository
+      - name: Check out repository
         uses: actions/checkout@v2
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          
-      - name: Install Dependencies
-        run: |
-          Rscript -e 'install.packages(c("tidyverse", "dplyr", "gt", "sf", "ggmap", "tmap", "osmdata", "tidycensus", "leaflet", "ggthemes", "viridis", "knitr"))'
-          
-      - name: Build R Markdown
-        run: Rscript -e 'rmarkdown::render("Assignment6_CharlyVang.Rmd")'
 
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
         with:
+          r-version: '4.2.0' # The R version to download (if necessary) and use.
+
+      - name: Install packages
+        run: |
+          Rscript -e 'install.packages(c("knitr", "rmarkdown", "dplyr", "tidyr", "ggplot2", "lubridate", "googleway", "purrr", "leaflet", "gepaf"))'
+          
+      - name: Render document
+        uses: quarto-dev/quarto-actions/render@v2
+        env:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
-          publish_dir: "/Users/vang2397/Documents/2022-2023/PUBH 7462 - R/PUBH 7462: Advance Programming and Data Analysis in R/Assignment 8"
-          publish_branch: gh-pages
+        with:
+          to: html
+          path: Assignment6_CharlyVang.Rmd
+          
+      - name: Setup git config
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "<>"
+          
+      - name: Commit
+        run: |
+          git add .
+          git commit -m "Updated report"
+          git push origin main
 
 
 
