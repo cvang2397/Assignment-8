@@ -1,7 +1,4 @@
-on:
-  push:
-    branches:
-      - main
+on: [workflow_dispatch]
 
 name: Publish Report to GitHub Pages
 
@@ -23,7 +20,7 @@ jobs:
 
       - name: Install packages
         run: |
-          Rscript -e 'install.packages(c("knitr", "rmarkdown", "dplyr", "tidyr", "ggplot2", "lubridate", "googleway", "purrr", "leaflet", "gepaf"))'
+          Rscript -e 'install.packages(c("tidyverse", "dplyr", "gt", "sf", "ggmap", "tmap", "osmdata", "tidycensus", "leaflet", "ggthemes", "viridis", "knitr"))'
 
       - name: Render document
         uses: quarto-dev/quarto-actions/render@v2
@@ -38,7 +35,3 @@ jobs:
         with:
           publish_dir: ./docs
           publish_branch: gh-pages
-
-
-
-
